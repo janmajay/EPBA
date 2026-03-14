@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Environment Variables
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+
+# Databases & Vector Stores
+# data/patients.db
+# data/chroma_db/
+# data/patient_reports/
+# data/fhir_stu3/
+
+# IDEs
+.vscode/
+.idea/
+.DS_Store
+
+# Brain / Artifacts (if applicable)
+.gemini/
+brain/

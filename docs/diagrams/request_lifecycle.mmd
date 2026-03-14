@@ -1,0 +1,27 @@
+sequenceDiagram
+    actor Doctor
+    participant UI as Frontend
+    participant Orch as Orchestrator
+    participant SQL as SQL Agent
+    participant Vec as Vector Agent
+    participant Sum as Summarizer
+    
+    Doctor->>UI: "Give me details about..."
+    UI->>Orch: POST /query
+    
+    par Parallel Execution
+        Orch->>SQL: POST /query
+        Orch->>Vec: POST /query
+    and
+        SQL->>SQL: Generate & Run SQL
+        Vec->>Vec: Embed & Retrieve
+    end
+    
+    SQL-->>Orch: Structured Data / "No Data"
+    Vec-->>Orch: Unstructured Context
+    
+    Orch->>Sum: POST /summarize (Query + SQL + Vector)
+    Sum-->>Orch: Final Synthesized Answer
+    
+    Orch-->>UI: JSON Response + Timings
+    UI->>Doctor: Display Answer + Trace

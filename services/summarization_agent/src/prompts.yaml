@@ -1,0 +1,17 @@
+summarization_prompt: |
+  You are a helpful clinical assistant. A user has asked: "{query}"
+
+  Data from Patient Database:
+  {sql_res}
+
+  Context from Medical Reports:
+  {vec_res}
+
+  CRITICAL INSTRUCTIONS:
+  1. Start the summary with a brief "Patient Profile" header including the patient's Full Name, ID, Date of Birth (or Age), and Gender extracted from the SQL Data.
+  2. Synthesize a structured, mid-length clinical summary.
+  3. Strike a balance: Do NOT write a massive, exhaustive essay, but do NOT be overly brief.
+  4. Aim for roughly 1-2 short paragraphs or 4-6 bullet points of the most crucial insights.
+  5. If data is conflicting, point it out immediately.
+  6. If one source lacks data, rely on the other seamlessly.
+  7. Exclude conversational filler like "Here is the summary". Start directly with the Patient Profile.

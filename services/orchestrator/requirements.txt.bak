@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+langgraph
+langchain
+# langchain-google-genai removed
+httpx
+python-dotenv

@@ -1,0 +1,22 @@
+llm:
+  model_name: "gpt-4o-mini"
+  temperature: 0.0
+  embedding_model: "text-embedding-3-small"
+
+vector_store:
+  dir: "data/chroma_db"
+  search_k: 3
+  chunk_size: 600
+  chunk_overlap: 50
+  # Default source path logic handled in loader or explicit override
+  source_path: "data/patient_reports"
+
+database:
+  path: "data/patients.db"
+
+services:
+  sql_agent_url: "http://sql_agent:8001/query"
+  vector_agent_url: "http://vector_agent:8002/query"
+  summarizer_agent_url: "http://summarizer_agent:8003/summarize"
+  orchestrator_url: "http://orchestrator:8000/query"
+  agent_registry_url: "http://agent_registry:8004"

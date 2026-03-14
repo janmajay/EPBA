@@ -1,0 +1,2 @@
+Commands
+python3 data/check_patient.py "Abdul" --db data/patients.db

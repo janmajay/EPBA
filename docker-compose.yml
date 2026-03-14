@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  orchestrator:
+    build:
+      context: .
+      dockerfile: services/orchestrator/Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+    environment:
+      - CONFIG_PATH=/app/config/settings.yaml
+    depends_on:
+      - sql_agent
+      - vector_agent
+      - summarizer_agent
+
+  sql_agent:
+    build:
+      context: .
+      dockerfile: services/sql_agent/Dockerfile
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./data:/app/data
+      - ./config:/app/config
+      - ./logs:/app/logs
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CONFIG_PATH=/app/config/settings.yaml
+
+  vector_agent:
+    build:
+      context: .
+      dockerfile: services/vector_agent/Dockerfile
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./data:/app/data
+      - ./chroma_db:/app/chroma_db
+      - ./config:/app/config
+      - ./logs:/app/logs
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CONFIG_PATH=/app/config/settings.yaml
+
+  summarizer_agent:
+    build:
+      context: .
+      dockerfile: services/summarization_agent/Dockerfile
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CONFIG_PATH=/app/config/settings.yaml
+
+  agent_registry:
+    build:
+      context: .
+      dockerfile: services/agent_registry/Dockerfile
+    ports:
+      - "8004:8004"
+    volumes:
+      - ./config:/app/config
+      - ./logs:/app/logs
+    environment:
+      - CONFIG_PATH=/app/config/settings.yaml
+    depends_on:
+      - orchestrator
+      - sql_agent
+      - vector_agent
+      - summarizer_agent
+
+  frontend:
+    build:
+      context: .
+      dockerfile: services/frontend/Dockerfile
+    ports:
+      - "8501:8501"
+    environment:
+      - ORCHESTRATOR_URL=http://orchestrator:8000/query
+      - AGENT_REGISTRY_URL=http://agent_registry:8004
+    depends_on:
+      - orchestrator
+      - agent_registry

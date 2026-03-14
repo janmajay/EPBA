@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+langchain
+langchain-community
+langchain-openai
+# sqlalchemy is pulled by langchain-community for sql
