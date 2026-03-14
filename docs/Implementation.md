@@ -143,7 +143,7 @@ Handles **structured data retrieval** from the SQLite database using LangChain's
 
 | Feature | Detail |
 |---------|--------|
-| **Agent Type** | **Single-Shot Query Generator** (Optimized for <3s latency) |
+| **Agent Type** | **Single-Shot Query Generator** (Optimized for &lt;3s latency) |
 | **SQL Generation** | Direct prompt-to-SQL without iterative ReAct loop |
 | **Schema Pre-loading** | Full DB schema injected into system prompt to avoid `sql_db_schema` tool calls |
 | **Fail-Fast Logic** | If no patient found in Step 1, agent stops immediately — no wasted queries |
@@ -323,7 +323,7 @@ The `shared/` package is an **editable-installable** Python package (`pip instal
 | Module | Purpose |
 |--------|---------|
 | `config.py` | **Settings singleton** — loads `config/settings.yaml`, merges with `.env` and env overrides. Smart path resolution for local vs. Docker contexts. |
-| `logger.py` | **Structured logging** — `structlog` with JSON output, ISO timestamps, per-service log files under `logs/<service>/`. Includes `log_execution_time` context manager. |
+| `logger.py` | **Structured logging** — `structlog` with JSON output, ISO timestamps, per-service log files under `logs/&lt;service&gt;/`. Includes `log_execution_time` context manager. |
 | `models.py` | **Pydantic models** — `AgentRequest`, `AgentResponse`, `SummarizationRequest` for type-safe inter-service contracts. |
 | `a2a_models.py` | **A2A Protocol models** — Full implementation of Google A2A RC v1.0: `AgentCard`, `AgentSkill`, `SendMessageRequest`, `A2ATask`, `Part`, `Message`, `Artifact`, helpers (`create_completed_task`, `create_failed_task`). |
 | `a2a_server.py` | **A2A Router factory** — `create_a2a_router(agent_card, process_message)` creates a FastAPI `APIRouter` with `GET /.well-known/agent.json` and `POST /message:send`. Supports both simple (`str → str`) and full-message (`Message → str`) callbacks. |
@@ -408,53 +408,7 @@ By selecting a specific session, we can drill down into the **Nested Trace Detai
 
 The system coordinates complex interactions between frontends, LLMs, and databases. Below is the multi-modal sequence diagram:
 
-```mermaid
-sequenceDiagram
-    actor Doctor
-    participant UI as Frontend
-    participant RT as Realtime API
-    participant Orch as Orchestrator
-    participant SQL as SQL Agent
-    participant Vec as Vector Agent
-    participant Sum as Summarizer
-    
-    rect rgb(40, 60, 90)
-    Note over Doctor,UI: Text Modality
-    Doctor->>UI: Types question
-    UI->>Orch: POST /query
-    end
-    
-    rect rgb(90, 60, 40)
-    Note over Doctor,RT: Audio Modality
-    Doctor->>UI: Records audio
-    UI->>RT: WebSocket (PCM16 audio)
-    RT-->>UI: Transcript (Whisper STT)
-    UI->>Orch: POST /query (transcript)
-    end
-    
-    par Parallel A2A Execution
-        Orch->>SQL: POST /message:send
-        Orch->>Vec: POST /message:send
-    and
-        SQL->>SQL: Generate & Run SQL
-        Vec->>Vec: Embed & Retrieve
-    end
-    
-    SQL-->>Orch: A2A Task (Structured Data)
-    Vec-->>Orch: A2A Task (Unstructured Context)
-    
-    Orch->>Sum: POST /message:send (Query + SQL + Vector)
-    Sum-->>Orch: A2A Task (Final Synthesized Answer)
-    
-    alt Text Response
-        Orch-->>UI: JSON Response + Timings
-        UI->>Doctor: Display Answer + Trace
-    else Audio Response
-        UI->>RT: response.create (context from Orchestrator)
-        RT-->>UI: Audio stream (PCM16)
-        UI->>Doctor: Play audio + Show transcript
-    end
-```
+![Request Lifecycle Flow](diagrams/request_lifecycle_flow.png)
 
 ### 10.1 Step-by-Step Walkthrough
 
@@ -569,7 +523,7 @@ services:
 
 **Override precedence**: Environment variables > `.env` file > `settings.yaml` defaults.
 
-Service URLs default to Docker service names. For local development, `start_all_locally.py` overrides them to `http://localhost:<port>`.
+Service URLs default to Docker service names. For local development, `start_all_locally.py` overrides them to `http://localhost:&lt;port&gt;`.
 
 ---
 
