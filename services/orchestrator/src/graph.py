@@ -33,20 +33,28 @@ import asyncio
 import time
 
 
-def _build_a2a_request(query: str, trace_id: str = None) -> dict:
+def _build_a2a_request(query: str, trace_id: str = None, parent_observation_id: str = None) -> dict:
     """Build an A2A SendMessageRequest payload for text-based agents."""
+    meta = {}
+    if trace_id: meta["langfuse_trace_id"] = trace_id
+    if parent_observation_id: meta["langfuse_parent_id"] = parent_observation_id
+    
     request = SendMessageRequest(
         message=Message(
             role=Role.USER,
             parts=[Part.from_text(query)],
-            metadata={"langfuse_trace_id": trace_id} if trace_id else {}
+            metadata=meta
         )
     )
     return request.model_dump()
 
 
-def _build_summarizer_a2a_request(query: str, sql_result: str, vector_result: str, trace_id: str = None) -> dict:
+def _build_summarizer_a2a_request(query: str, sql_result: str, vector_result: str, trace_id: str = None, parent_observation_id: str = None) -> dict:
     """Build an A2A SendMessageRequest payload for the summarizer with structured data."""
+    meta = {}
+    if trace_id: meta["langfuse_trace_id"] = trace_id
+    if parent_observation_id: meta["langfuse_parent_id"] = parent_observation_id
+    
     request = SendMessageRequest(
         message=Message(
             role=Role.USER,
@@ -57,7 +65,7 @@ def _build_summarizer_a2a_request(query: str, sql_result: str, vector_result: st
                     "vector_result": vector_result,
                 })
             ],
-            metadata={"langfuse_trace_id": trace_id} if trace_id else {}
+            metadata=meta
         )
     )
     return request.model_dump()
@@ -97,38 +105,50 @@ async def _fetch_sql(query: str, base_url: str, trace_id: str = None):
     a2a_url = base_url.rsplit("/", 1)[0] + "/message:send"
     logger.info("orchestrator_calling_sql_a2a", url=a2a_url)
     start_time = time.time()
+    span = langfuse.span(trace_id=trace_id, name="A2A HTTP: SQL Agent", input={"query": query}) if trace_id else None
+    
     try:
         async with httpx.AsyncClient() as client:
-            payload = _build_a2a_request(query, trace_id)
+            # Pass span.id if it exists
+            payload = _build_a2a_request(query, trace_id, parent_observation_id=span.id if span else None)
             resp = await client.post(a2a_url, json=payload, timeout=30.0)
             duration = time.time() - start_time
             if resp.status_code == 200:
                 result = _extract_a2a_result(resp.json())
+                if span: span.end(output=result)
                 return result, duration
             else:
+                if span: span.end(level="ERROR", status_message=resp.text)
                 return f"Error: {resp.text}", duration
     except Exception as e:
         logger.error("sql_call_error", error=str(e))
+        if span: span.end(level="ERROR", status_message=str(e))
         return f"Connection Error: {str(e)}", time.time() - start_time
 
 async def _fetch_vector(query: str, base_url: str, trace_id: str = None):
     a2a_url = base_url.rsplit("/", 1)[0] + "/message:send"
     logger.info("orchestrator_calling_vector_a2a", url=a2a_url)
     start_time = time.time()
+    span = langfuse.span(trace_id=trace_id, name="A2A HTTP: Vector Agent", input={"query": query}) if trace_id else None
+    
     try:
         async with httpx.AsyncClient() as client:
-            payload = _build_a2a_request(query, trace_id)
-            resp = await client.post(a2a_url, json=payload, timeout=30.0)
+            # Pass span.id if it exists
+            payload = _build_a2a_request(query, trace_id, parent_observation_id=span.id if span else None)
+            resp = await client.post(a2a_url, json=payload, timeout=60.0)
             duration = time.time() - start_time
             if resp.status_code == 200:
                 val = _extract_a2a_result(resp.json())
                 if "I don't know" in val or "No relevant" in val:
                      val = "No relevant documents found."
+                if span: span.end(output=val)
                 return val, duration
             else:
+                if span: span.end(level="ERROR", status_message=resp.text)
                 return f"Error: {resp.text}", duration
     except Exception as e:
         logger.error("vector_call_error", error=str(e))
+        if span: span.end(level="ERROR", status_message=str(e))
         return f"Connection Error: {str(e)}", time.time() - start_time
 
 # Define Nodes
@@ -173,11 +193,22 @@ async def call_summarizer_agent(state: AgentState):
     
     with log_execution_time(logger, "call_summarizer"):
         logger.info("orchestrator_calling_summarizer_a2a", url=a2a_url)
+        span = langfuse.span(
+            trace_id=trace_id, 
+            name="A2A HTTP: Summarizer Agent", 
+            input={
+                "query": query, 
+                "sql_result": state.get("sql_result", "N/A"), 
+                "vector_result": state.get("vector_result", "N/A")
+            }
+        ) if trace_id else None
+        
         payload = _build_summarizer_a2a_request(
             query,
             state.get("sql_result", "N/A"),
             state.get("vector_result", "N/A"),
-            trace_id
+            trace_id,
+            parent_observation_id=span.id if span else None
         )
         
         try:
@@ -188,9 +219,12 @@ async def call_summarizer_agent(state: AgentState):
                     result = _extract_a2a_result(resp.json())
                     current_timings["summarizer"] = duration
                     
+                    if span: span.end(output=result)
+                    
                     # Finalize trace in Orchestrator
                     if trace_id:
                         langfuse.trace(id=trace_id).update(output=result)
+                        langfuse.flush()
                     
                     return {
                         "final_answer": result,
@@ -198,6 +232,11 @@ async def call_summarizer_agent(state: AgentState):
                     }
                 else:
                     current_timings["summarizer"] = duration
+                    if span: span.end(level="ERROR", status_message=resp.text)
+                    if trace_id:
+                        langfuse.trace(id=trace_id).update(level="ERROR", status_message="Summarizer Failed")
+                        langfuse.flush()
+                        
                     return {
                         "final_answer": f"Summarizer Error: {resp.text}",
                         "timings": current_timings
@@ -205,6 +244,11 @@ async def call_summarizer_agent(state: AgentState):
         except Exception as e:
             logger.error("summarizer_call_error", error=str(e))
             current_timings["summarizer"] = time.time() - start_time
+            if span: span.end(level="ERROR", status_message=str(e))
+            if trace_id:
+                langfuse.trace(id=trace_id).update(level="ERROR", status_message=str(e))
+                langfuse.flush()
+                
             return {
                 "final_answer": f"Summarizer Connection Error: {str(e)}",
                 "timings": current_timings

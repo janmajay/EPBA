@@ -57,11 +57,12 @@ async def _process_vector_message(message: Message) -> str:
             query = part.text
             break
             
-    # Extract trace_id from metadata
+    # Extract trace_id and parent_id from metadata
     trace_id = message.metadata.get("langfuse_trace_id") if message.metadata else None
+    parent_id = message.metadata.get("langfuse_parent_id") if message.metadata else None
     
     agent = get_vector_agent()
-    return agent.query(query, trace_id=trace_id)
+    return agent.query(query, trace_id=trace_id, parent_observation_id=parent_id)
 
 a2a_router = create_a2a_router(vector_agent_card, process_full_message=_process_vector_message)
 app.include_router(a2a_router)

@@ -5,6 +5,8 @@ from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.messages import HumanMessage
 from langfuse import Langfuse
+from shared.src.evaluation import run_deepeval
+import threading
 
 import yaml
 
@@ -32,7 +34,7 @@ class SummarizationService:
         self.llm = ChatOpenAI(model=settings.LLM_MODEL_NAME, temperature=settings.LLM_TEMPERATURE)
         self.prompt_template = load_prompt()
 
-    def summarize(self, query: str, sql_res: str, vec_res: str, trace_id: str = None) -> str:
+    def summarize(self, query: str, sql_res: str, vec_res: str, trace_id: str = None, parent_observation_id: str = None) -> str:
         with log_execution_time(logger, "summarization_execution"):
             logger.info("received_summarization_request", query=query, trace_id=trace_id)
             
@@ -41,6 +43,7 @@ class SummarizationService:
             if trace_id:
                 generation = langfuse.generation(
                     trace_id=trace_id,
+                    parent_observation_id=parent_observation_id,
                     name="Summarization Agent Synthesis",
                     model=settings.LLM_MODEL_NAME,
                     model_parameters={"temperature": settings.LLM_TEMPERATURE},
@@ -56,6 +59,17 @@ class SummarizationService:
             try:
                 response = self.llm.invoke([HumanMessage(content=prompt_str)])
                 logger.info("summarization_success")
+                
+                # Trigger async DeepEval evaluation via a separate thread
+                try:
+                    # Use threading to ensure we don't block the FastAPI event loop
+                    eval_thread = threading.Thread(
+                        target=run_deepeval,
+                        args=(query, response.content, [sql_res, vec_res], trace_id)
+                    )
+                    eval_thread.start()
+                except Exception as eval_e:
+                    logger.error("failed_to_trigger_eval", error=str(eval_e))
                 
                 if generation:
                     generation.update(output=response.content)

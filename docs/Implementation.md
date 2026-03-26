@@ -143,10 +143,11 @@ Handles **structured data retrieval** from the SQLite database using LangChain's
 
 | Feature | Detail |
 |---------|--------|
-| **Agent Type** | **Single-Shot Query Generator** (Optimized for &lt;3s latency) |
+| **Agent Type** | **Single-Shot Query Generator** (Optimized for <3s latency) |
 | **SQL Generation** | Direct prompt-to-SQL without iterative ReAct loop |
 | **Schema Pre-loading** | Full DB schema injected into system prompt to avoid `sql_db_schema` tool calls |
 | **Fail-Fast Logic** | If no patient found in Step 1, agent stops immediately — no wasted queries |
+| **Context Validation**| LLM strictly prompted to ALWAYS select `p.id`, `p.first_name`, `p.last_name`, `p.birth_date`, and `p.gender` |
 | **Error Handling** | Graceful fallback: `"I could not retrieve the data in time."` on timeout |
 
 #### SQL Agent Flow
@@ -184,8 +185,8 @@ Handles **unstructured data retrieval** using semantic similarity search over em
 | Component | Technology | Config |
 |-----------|-----------|--------|
 | **Embedding Model** | `text-embedding-3-small` (OpenAI) | — |
-| **Vector Store** | ChromaDB (persistent) | `data/chroma_db/` |
-| **Retrieval Strategy** | Top-K similarity search | `k = 3` |
+| **Vector Store** | ChromaDB (persistent) + BM25Retriever | Semantic + Exact-keyword Ensemble |
+| **Retrieval Strategy** | Hybrid Ensemble Search + Flashrank | `k = 3`, TinyBERT Re-ranker filtering |
 | **QA Chain** | `RetrievalQA` with `stuff` chain type | — |
 | **Text Splitter** | `RecursiveCharacterTextSplitter` | `chunk_size=600`, `overlap=50` |
 
@@ -396,9 +397,10 @@ The **Trace List** view provides a chronological record of all user queries. It 
 
 #### 9.2.2 Distributed Trace & Nested Spans
 By selecting a specific session, we can drill down into the **Nested Trace Detail**. This view visualizes the distributed execution flow:
-- **Orchestrator Root**: The parent span managing the request lifecycle.
-- **Agent Spans**: Nested "observations" for the SQL Agent, Vector Agent, and Summarization Agent.
-- **LLM Metadata**: Each child span records the exact prompt sent, the model used (`gpt-4o-mini`), and the raw JSON response received from the agent.
+- **Orchestrator Root**: The parent trace managing the request lifecycle across microservices.
+- **Network Spans**: Explicit wrapper spans physically track the duration of A2A HTTP wait times.
+- **Nested Agent Generations**: Using `langfuse_parent_id`, each distributed sub-agent's local LLM telemetry is structurally nested underneath its corresponding network span.
+- **LLM-Based Explanations**: DeepEval metrics natively push LLM-judged clinical reasoning straight into the `comment` fields of the Trace Scores.
 
 ![Detailed Nested Execution Trace](snapshots/Traceability_2.png)
 
@@ -527,4 +529,4 @@ Service URLs default to Docker service names. For local development, `start_all_
 
 ---
 
-*Document updated on 2026-03-14. Reflecting recent SQL optimizations and Langfuse distributed tracing implementation.*
+*Document updated on 2026-03-27. Reflecting recent SQL Contextual limits, Hybrid Vector Retriever implementations, and A2A distributed trace nesting.*

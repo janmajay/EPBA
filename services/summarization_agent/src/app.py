@@ -69,11 +69,12 @@ async def _process_summarizer_message(message: Message) -> str:
         elif part.text is not None and not query:
             query = part.text
 
-    # Extract trace_id from metadata
+    # Extract trace_id and parent_id from metadata
     trace_id = message.metadata.get("langfuse_trace_id") if message.metadata else None
+    parent_id = message.metadata.get("langfuse_parent_id") if message.metadata else None
 
     agent = get_summarizer()
-    return agent.summarize(query, sql_result, vector_result, trace_id=trace_id)
+    return agent.summarize(query, sql_result, vector_result, trace_id=trace_id, parent_observation_id=parent_id)
 
 
 a2a_router = create_a2a_router(

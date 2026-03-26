@@ -41,10 +41,10 @@ Schema:
 {schema}
 
 Instructions:
-1. Try to use JOINs to merge data (demographics, conditions, medications, encounters) if the user asks for "details" about a patient.
-2. Group medications and conditions using GROUP_CONCAT if necessary, or just return the rows.
+1. If the user asks for "details" about a patient involving demographics, conditions, medications, or encounters, you MUST aggregate the one-to-many tables FIRST using subqueries BEFORE joining to the patient table (e.g., `LEFT JOIN (SELECT patient_id, GROUP_CONCAT(DISTINCT description) as conditions FROM conditions GROUP BY patient_id) c ON p.id = c.patient_id`). 
+2. NEVER perform multiple direct LEFT JOINs on one-to-many tables simultaneously (e.g., joining patients to conditions to medications) as it will create a massive cartesian product and crash the system.
 3. If looking up by name, use the `LIKE` operator with wildcard (e.g., `first_name || ' ' || last_name LIKE '%Abdul%'`).
-4. Keep the query highly optimized and limited to exactly what the user asks.
+4. Keep the query highly optimized. However, you MUST ALWAYS SELECT `p.id`, `p.first_name`, `p.last_name`, `p.birth_date`, and `p.gender` as the very first columns in your query, in addition to whatever else the user asked for. Disobeying this rule breaks the downstream summarizer.
 """),
             ("user", "{question}")
         ])
@@ -78,7 +78,7 @@ Instructions:
             if 'conn' in locals():
                 conn.close()
 
-    def query(self, user_query: str, trace_id: str = None) -> str:
+    def query(self, user_query: str, trace_id: str = None, parent_observation_id: str = None) -> str:
         with log_execution_time(logger, "sql_query_execution"):
             logger.info("received_query", query=user_query, trace_id=trace_id)
             
@@ -87,6 +87,7 @@ Instructions:
             if trace_id:
                 generation = langfuse.generation(
                     trace_id=trace_id,
+                    parent_observation_id=parent_observation_id,
                     name="SQL Agent Query Generation",
                     model=settings.LLM_MODEL_NAME,
                     model_parameters={"temperature": 0.0},

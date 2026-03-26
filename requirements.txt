@@ -23,3 +23,6 @@ langchain-langfuse
 PyYAML
 SQLAlchemy
 langchain-classic
+deepeval
+flashrank
+rank_bm25

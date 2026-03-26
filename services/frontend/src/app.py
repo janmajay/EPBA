@@ -188,7 +188,7 @@ tab_chat, tab_agents = st.tabs(["💬 Chat", "🤖 Agent Directory"])
 # ═══════════════════════════════════════════════════════════════════════════════
 
 with tab_chat:
-    st.title("🏥 Healthcare AI Assistant")
+    st.title("🏥 EPBA AI Assistant")
     st.markdown("Ask questions about patient records and get comprehensive summaries.")
 
     # Initialize chat history
@@ -198,10 +198,19 @@ with tab_chat:
     if "session_id" not in st.session_state:
         st.session_state.session_id = str(uuid.uuid4())
 
-    # Display chat messages from history on app rerun
+    # Display chat messages from history on app rerun   
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+            if message.get("type", "text") == "user_audio":
+                st.audio(message["audio_bytes"], format="audio/wav")
+                st.status("Voice Interaction Complete", state="complete", expanded=False)
+            elif message.get("type", "text") == "assistant_audio":
+                st.markdown(f"**Transcript**: _{message.get('transcript', '')}_")
+                st.audio(message["wav_bytes"], format="audio/wav")
+                if message.get("assistant_transcript"):
+                    st.info(f"🔊 _{message['assistant_transcript']}_")
+            else:
+                st.markdown(message["content"])
 
 
     # Chat input — rendered at the bottom by Streamlit
@@ -266,9 +275,21 @@ with tab_chat:
                 
                 if wav_bytes:
                      # Update Chat History in Main Thread
-                     st.session_state.messages.append({"role": "user", "content": f"🎙️ {transcript}"})
+                     st.session_state.messages.append({
+                         "role": "user", 
+                         "type": "user_audio",
+                         "audio_bytes": audio_bytes,
+                         "content": f"🎙️ {transcript}" # Used mostly for debugging or external logs
+                     })
                      if orchestrator_final:
-                         st.session_state.messages.append({"role": "assistant", "content": orchestrator_final})
+                         st.session_state.messages.append({
+                             "role": "assistant", 
+                             "type": "assistant_audio",
+                             "transcript": transcript,
+                             "wav_bytes": wav_bytes,
+                             "assistant_transcript": assistant_transcript,
+                             "content": orchestrator_final # optional text context
+                         })
                      
                      # Play Result
                      with st.chat_message("assistant"):
@@ -293,7 +314,7 @@ with tab_chat:
         # Sidebar for Agent Trace
         with st.sidebar:
             st.header("Agent Execution Flows")
-            st.info("Waiting for query...")
+            st.info("Query Received ....")
             workflow_steps = st.container()
 
         # Call Orchestrator
