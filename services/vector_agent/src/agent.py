@@ -51,14 +51,10 @@ class FlashrankRetriever(BaseRetriever):
             # Drop any chunk that falls below our threshold, eliminating all noise
             if r.get("score", 0.0) >= self.score_threshold:
                 idx = r["id"]
-                final_docs.append(docs[idx])
+                doc = docs[idx]
+                doc.metadata["flashrank_score"] = r.get("score", 0.0)
+                final_docs.append(doc)
                 
-        # Fallback safety: If NO documents meet the strict threshold, return the top 1
-        # to ensure the LLM has at least something to respond with rather than crashing
-        if not final_docs and results:
-            idx = results[0]["id"]
-            final_docs.append(docs[idx])
-            
         return final_docs
 
 # Initialize Langfuse
@@ -118,7 +114,16 @@ class VectorAgentService:
             try:
                 result = self.qa_chain.invoke({"query": user_query})
                 output = result["result"]
-                contexts = [doc.page_content for doc in result.get("source_documents", [])]
+                source_documents = result.get("source_documents", [])
+                contexts = [doc.page_content for doc in source_documents]
+                
+                retrieved_chunks_meta = []
+                for doc in source_documents:
+                    retrieved_chunks_meta.append({
+                        "text": doc.page_content,
+                        "score": doc.metadata.get("flashrank_score", "N/A"),
+                        "source": doc.metadata.get("source", "Unknown")
+                    })
                 
                 logger.info("query_success", output_preview=output[:100])
                 
@@ -134,7 +139,10 @@ class VectorAgentService:
                     logger.error("failed_to_trigger_eval", error=str(eval_e))
                 
                 if generation:
-                    generation.update(output=output)
+                    generation.update(
+                        output=output,
+                        metadata={"retrieved_chunks": retrieved_chunks_meta}
+                    )
                 
                 return output
             except Exception as e:

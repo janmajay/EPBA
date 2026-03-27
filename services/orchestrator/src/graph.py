@@ -139,8 +139,6 @@ async def _fetch_vector(query: str, base_url: str, trace_id: str = None):
             duration = time.time() - start_time
             if resp.status_code == 200:
                 val = _extract_a2a_result(resp.json())
-                if "I don't know" in val or "No relevant" in val:
-                     val = "No relevant documents found."
                 if span: span.end(output=val)
                 return val, duration
             else:

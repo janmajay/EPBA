@@ -66,9 +66,9 @@ python start_all_locally.py
 
 ## 📚 Deep Dives
 
-- **[Implementation Details](docs/Implementation.md)**: Deep dive into the architecture, A2A protocol, and request lifecycle.
-- **[Use Case Presentation](docs/Use_Case_Presentation.md)**: Executive summary of clinical impact and human-AI interaction.
-- **[Setup Guide](docs/Project_Setup.md)**: Detailed instructions for data ingestion, Docker, and troubleshooting.
+- **[Implementation Details](Implementation.md)**: Deep dive into the architecture, A2A protocol, and request lifecycle.
+- **[Use Case Presentation](Use_Case_Presentation.md)**: Executive summary of clinical impact and human-AI interaction.
+- **[Setup Guide](Project_Setup.md)**: Detailed instructions for data ingestion, Docker, and troubleshooting.
 
 ---
 

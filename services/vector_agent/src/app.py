@@ -12,9 +12,15 @@ app = FastAPI()
 class QueryRequest(BaseModel):
     query: str
 
+from functools import lru_cache
+
+@lru_cache(maxsize=1)
+def _get_cached_agent():
+    return get_vector_agent()
+
 @app.post("/query")
 async def query_vector(request: QueryRequest):
-    agent = get_vector_agent()
+    agent = _get_cached_agent()
     response = agent.query(request.query)
     return {"answer": response}
 
@@ -61,7 +67,7 @@ async def _process_vector_message(message: Message) -> str:
     trace_id = message.metadata.get("langfuse_trace_id") if message.metadata else None
     parent_id = message.metadata.get("langfuse_parent_id") if message.metadata else None
     
-    agent = get_vector_agent()
+    agent = _get_cached_agent()
     return agent.query(query, trace_id=trace_id, parent_observation_id=parent_id)
 
 a2a_router = create_a2a_router(vector_agent_card, process_full_message=_process_vector_message)

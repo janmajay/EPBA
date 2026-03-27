@@ -186,7 +186,7 @@ Handles **unstructured data retrieval** using semantic similarity search over em
 |-----------|-----------|--------|
 | **Embedding Model** | `text-embedding-3-small` (OpenAI) | — |
 | **Vector Store** | ChromaDB (persistent) + BM25Retriever | Semantic + Exact-keyword Ensemble |
-| **Retrieval Strategy** | Hybrid Ensemble Search + Flashrank | `k = 3`, TinyBERT Re-ranker filtering |
+| **Retrieval Strategy** | Hybrid Ensemble Search + Flashrank | `k = 10`, TinyBERT Re-ranker (threshold 0.50) |
 | **QA Chain** | `RetrievalQA` with `stuff` chain type | — |
 | **Text Splitter** | `RecursiveCharacterTextSplitter` | `chunk_size=600`, `overlap=50` |
 
@@ -400,6 +400,7 @@ By selecting a specific session, we can drill down into the **Nested Trace Detai
 - **Orchestrator Root**: The parent trace managing the request lifecycle across microservices.
 - **Network Spans**: Explicit wrapper spans physically track the duration of A2A HTTP wait times.
 - **Nested Agent Generations**: Using `langfuse_parent_id`, each distributed sub-agent's local LLM telemetry is structurally nested underneath its corresponding network span.
+- **Vector Chunk Instrumentation**: Final dynamically reranked chunks and their associated Flashrank relevance scores are injected into the `Vector Agent RetrievalQA` metadata for auditability.
 - **LLM-Based Explanations**: DeepEval metrics natively push LLM-judged clinical reasoning straight into the `comment` fields of the Trace Scores.
 
 ![Detailed Nested Execution Trace](snapshots/Traceability_2.png)
@@ -507,7 +508,7 @@ llm:
 
 vector_store:
   dir: "data/chroma_db"
-  search_k: 3
+  search_k: 10
   chunk_size: 600
   chunk_overlap: 50
   source_path: "data/patient_reports"
@@ -529,4 +530,4 @@ Service URLs default to Docker service names. For local development, `start_all_
 
 ---
 
-*Document updated on 2026-03-27. Reflecting recent SQL Contextual limits, Hybrid Vector Retriever implementations, and A2A distributed trace nesting.*
+*Document updated on 2026-03-28. Reflecting Vector Agent latency optimizations (Singleton), Hallucination removal (Thresholding), and enhanced Langfuse metadata instrumentation.*
